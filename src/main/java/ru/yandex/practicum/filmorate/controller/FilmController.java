@@ -27,17 +27,22 @@ public class FilmController {
     private final Map<Integer, Film> films = new HashMap<>();
 
     public static void validate(Film film) throws ValidationException {
-        if (isBlank(film.getName())) {
-            throw new ValidationException("Input error: 'name' is empty!");
-        }
-        if (film.getDescription() != null && film.getDescription().length() > 200) {
-            throw new ValidationException("Input error: 'description' is longer than 200 characters!");
-        }
-        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(FILM_BIRTHDAY)) {
-            throw new ValidationException("Input error: 'releaseDate' is before than " + FILM_BIRTHDAY.format(ISO_LOCAL_DATE) + "!");
-        }
-        if (film.getDuration() <= 0) {
-            throw new ValidationException("Input error: 'duration' must be positive!");
+        try {
+            if (isBlank(film.getName())) {
+                throw new ValidationException("'name' is empty!");
+            }
+            if (film.getDescription() != null && film.getDescription().length() > 200) {
+                throw new ValidationException("'description' is longer than 200 characters!");
+            }
+            if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(FILM_BIRTHDAY)) {
+                throw new ValidationException("'releaseDate' is before than " + FILM_BIRTHDAY.format(ISO_LOCAL_DATE) + "!");
+            }
+            if (film.getDuration() <= 0) {
+                throw new ValidationException("'duration' must be positive!");
+            }
+        } catch (ValidationException e) {
+            log.error("Validation error: " + e.getMessage() + " for " + film);
+            throw e;
         }
     }
 
@@ -52,35 +57,26 @@ public class FilmController {
 
     @PostMapping
     public Film create(@Valid @RequestBody Film film) throws ValidationException {
-        log.info("Film validation started");
-        try {
-            validate(film);
-        } catch (ValidationException e) {
-            log.error(e.getMessage());
-            throw e;
-        }
-        log.info("Film validation successful");
+        log.info("Film validation started: " + film);
+        validate(film);
+        log.info("Film validation successful: " + film);
         film.setId(createId());
         films.put(film.getId(), film);
-        log.info("Film created");
+        log.info("Film created: " + film);
         return film;
     }
 
     @PutMapping
     public Film update(@Valid @RequestBody Film film) throws ValidationException {
-        log.info("Film validation started");
-        try {
-            if (!films.containsKey(film.getId())) {
-                throw new ValidationException("Input error: 'id' not found");
-            }
-            validate(film);
-        } catch (ValidationException e) {
-            log.error("Validation failed: {}", e.getMessage());
-            throw e;
+        if (!films.containsKey(film.getId())) {
+            log.error("Validation error: 'id' not found for " + film);
+            throw new ValidationException("'id' not found for " + film);
         }
-        log.info("Film validation successful");
+        log.info("Film validation started: " + film);
+        validate(film);
+        log.info("Film validation successful: " + film);
         films.put(film.getId(), film);
-        log.info("Film updated");
+        log.info("Film updated: " + film);
         return film;
     }
 }

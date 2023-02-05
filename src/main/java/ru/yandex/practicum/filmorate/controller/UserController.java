@@ -25,20 +25,25 @@ public class UserController {
     private final Map<Integer, User> users = new HashMap<>();
 
     public static void validate(User user) throws ValidationException {
-        if (isBlank(user.getEmail())) {
-            throw new ValidationException("Input error: 'email' is empty!");
-        }
-        if (!user.getEmail().contains("@")) {
-            throw new ValidationException("Input error: 'email' must contain '@'!");
-        }
-        if (isBlank(user.getLogin())) {
-            throw new ValidationException("Input error: 'login' is empty!");
-        }
-        if (user.getLogin().contains(" ")) {
-            throw new ValidationException("Input error: 'login' must not contain blanks!");
-        }
-        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
-            throw new ValidationException("Input error: 'birthday' must not be in future!");
+        try {
+            if (isBlank(user.getEmail())) {
+                throw new ValidationException("'email' is empty!");
+            }
+            if (!user.getEmail().contains("@")) {
+                throw new ValidationException("'email' must contain '@'!");
+            }
+            if (isBlank(user.getLogin())) {
+                throw new ValidationException("'login' is empty!");
+            }
+            if (user.getLogin().contains(" ")) {
+                throw new ValidationException("'login' must not contain blanks!");
+            }
+            if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
+                throw new ValidationException("'birthday' must not be in future!");
+            }
+        } catch (ValidationException e) {
+            log.error("Validation error: " + e.getMessage() + " for " + user);
+            throw e;
         }
     }
 
@@ -53,41 +58,32 @@ public class UserController {
 
     @PostMapping
     public User create(@Valid @RequestBody User user) throws ValidationException {
-        log.info("User validation started");
-        try {
-            validate(user);
-        } catch (ValidationException e) {
-            log.error(e.getMessage());
-            throw e;
-        }
-        log.info("User validation successful");
+        log.info("User validation started: " + user);
+        validate(user);
+        log.info("User validation successful: " + user);
         if (isBlank(user.getName())) {
             user.setName(user.getLogin());
         }
         user.setId(createId());
         users.put(user.getId(), user);
-        log.info("User created");
+        log.info("User created: " + user);
         return user;
     }
 
     @PutMapping
     public User update(@Valid @RequestBody User user) throws ValidationException {
-        log.info("User validation started");
-        try {
-            if (!users.containsKey(user.getId())) {
-                throw new ValidationException("Input error: 'id' not found");
-            }
-            validate(user);
-        } catch (ValidationException e) {
-            log.error(e.getMessage());
-            throw e;
+        if (!users.containsKey(user.getId())) {
+            log.error("Validation error: 'id' not found for " + user);
+            throw new ValidationException("Validation error: 'id' not found for " + user);
         }
-        log.info("User validation successful");
+        log.info("User validation started: " + user);
+        validate(user);
+        log.info("User validation successful: " + user);
         if (isBlank(user.getName())) {
             user.setName(user.getLogin());
         }
         users.put(user.getId(), user);
-        log.info("User updated");
+        log.info("User updated: " + user);
         return user;
     }
 }
