@@ -1,82 +1,61 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
 
 import javax.validation.Valid;
-import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static org.apache.logging.log4j.util.Strings.isBlank;
-
-@Slf4j
 @RestController
 @RequestMapping("/films")
 public class FilmController {
-    private static final LocalDate FILM_BIRTHDAY = LocalDate.of(1895, 12, 28);
-    private final Map<Integer, Film> films = new HashMap<>();
+    private final FilmService filmService;
 
-    public static void validate(Film film) throws ValidationException {
-        try {
-            if (isBlank(film.getName())) {
-                throw new ValidationException("'name' is empty!");
-            }
-            if (film.getDescription() != null && film.getDescription().length() > 200) {
-                throw new ValidationException("'description' is longer than 200 characters!");
-            }
-            if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(FILM_BIRTHDAY)) {
-                throw new ValidationException("'releaseDate' is before than " + FILM_BIRTHDAY.format(ISO_LOCAL_DATE) + "!");
-            }
-            if (film.getDuration() <= 0) {
-                throw new ValidationException("'duration' must be positive!");
-            }
-        } catch (ValidationException e) {
-            log.error("Validation error: " + e.getMessage() + " for " + film);
-            throw e;
-        }
-    }
-
-    private int createId() {
-        return films.values().size() + 1;
+    public FilmController(FilmService filmService) {
+        this.filmService = filmService;
     }
 
     @GetMapping
     public Collection<Film> getAll() {
-        return films.values();
+        return filmService.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public Film getFilmById(@PathVariable("id") long filmId) {
+        return filmService.getFilmById(filmId);
+    }
+
+    @GetMapping("/popular")
+    public Collection<Film> getTopFilms(@RequestParam(defaultValue = "10") Integer count) {
+        return filmService.getTopFilms(count);
     }
 
     @PostMapping
-    public Film create(@Valid @RequestBody Film film) throws ValidationException {
-        log.info("Film validation started: " + film);
-        validate(film);
-        log.info("Film validation successful: " + film);
-        film.setId(createId());
-        films.put(film.getId(), film);
-        log.info("Film created: " + film);
-        return film;
+    public Film create(@Valid @RequestBody Film film) {
+        return filmService.create(film);
     }
 
     @PutMapping
-    public Film update(@Valid @RequestBody Film film) throws ValidationException {
-        if (!films.containsKey(film.getId())) {
-            log.error("Validation error: 'id' not found for " + film);
-            throw new ValidationException("'id' not found for " + film);
-        }
-        log.info("Film validation started: " + film);
-        validate(film);
-        log.info("Film validation successful: " + film);
-        films.put(film.getId(), film);
-        log.info("Film updated: " + film);
-        return film;
+    public Film update(@Valid @RequestBody Film film) {
+        return filmService.update(film);
+    }
+
+    @PutMapping("/{id}/like/{userId}")
+    public void addLike(@PathVariable("id") long filmId, @PathVariable long userId) {
+        filmService.addLike(filmId, userId);
+    }
+
+    @DeleteMapping("/{id}/like/{userId}")
+    public void deleteLike(@PathVariable("id") long filmId, @PathVariable long userId) {
+        filmService.deleteLike(filmId, userId);
     }
 }
