@@ -1,6 +1,6 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.User;
 
 import java.util.Collection;
@@ -11,7 +11,7 @@ import java.util.Set;
 
 import static org.apache.logging.log4j.util.Strings.isBlank;
 
-@Component
+@Repository
 public class InMemoryUserStorage implements UserStorage {
     private final Map<Long, User> users = new HashMap<>();
     private final Map<Long, Set<Long>> friends = new HashMap<>();
