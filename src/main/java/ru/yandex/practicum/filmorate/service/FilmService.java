@@ -1,10 +1,15 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.FilmNotFoundException;
+import ru.yandex.practicum.filmorate.exception.GenreNotFoundException;
+import ru.yandex.practicum.filmorate.exception.MpaNotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 
 import java.time.LocalDate;
@@ -12,6 +17,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
@@ -25,7 +31,7 @@ public class FilmService {
     private final FilmStorage filmStorage;
     private final UserService userService;
 
-    public FilmService(FilmStorage filmStorage, UserService userService) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage, UserService userService) {
         this.filmStorage = filmStorage;
         this.userService = userService;
     }
@@ -110,5 +116,23 @@ public class FilmService {
                 .map(Map.Entry::getKey)
                 .map(this::getFilmById)
                 .collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    public Collection<Genre> getAllGenres() {
+        return filmStorage.getAllGenres();
+    }
+
+    public Genre getGenreById(long genreId) {
+        return Optional.ofNullable(filmStorage.getGenre(genreId))
+                .orElseThrow(() -> new GenreNotFoundException("Unknown id=" + genreId));
+    }
+
+    public Collection<Mpa> getAllMpa() {
+        return filmStorage.getAllMpa();
+    }
+
+    public Mpa getMpaById(long mpaId) {
+        return Optional.ofNullable(filmStorage.getMpa(mpaId))
+                .orElseThrow(() -> new MpaNotFoundException("Unknown id=" + mpaId));
     }
 }
