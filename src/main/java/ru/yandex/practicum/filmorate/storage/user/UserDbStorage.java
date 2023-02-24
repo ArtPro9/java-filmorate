@@ -22,6 +22,7 @@ import java.util.Set;
 import static org.apache.logging.log4j.util.Strings.isBlank;
 import static ru.yandex.practicum.filmorate.model.Friendship.APPROVED;
 import static ru.yandex.practicum.filmorate.model.Friendship.UNAPPROVED;
+import static ru.yandex.practicum.filmorate.storage.StorageUtils.convertFromOptionalList;
 
 @Repository
 public class UserDbStorage implements UserStorage {
@@ -36,21 +37,21 @@ public class UserDbStorage implements UserStorage {
     public Collection<User> getAll() {
         String sqlQuery = "SELECT * FROM USERS " +
                 "ORDER BY \"user_id\"";
-        return jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs));
+        return convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs)));
     }
 
-    private User extractUser(ResultSet rs) throws SQLException {
+    private Optional<User> extractUser(ResultSet rs) throws SQLException {
         long userId = rs.getLong("user_id");
         if (userId < 1) {
-            return null;
+            return Optional.empty();
         }
-        return User.builder()
+        return Optional.ofNullable(User.builder()
                 .id(userId)
                 .email(rs.getString("email"))
                 .login(rs.getString("login"))
                 .name(rs.getString("name"))
                 .birthday(Optional.ofNullable(rs.getDate("birthday")).map(Date::toLocalDate).orElse(null))
-                .build();
+                .build());
     }
 
     @Override
@@ -103,8 +104,8 @@ public class UserDbStorage implements UserStorage {
     @Override
     public User getUser(long userId) {
         String sqlQuery = "SELECT * FROM USERS WHERE \"user_id\" = ?";
-        List<User> users = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs), userId);
-        if (users.isEmpty() || users.stream().allMatch(Objects::isNull)) {
+        List<User> users = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs), userId));
+        if (users.isEmpty()) {
             return null;
         }
         return users.get(0);
@@ -112,15 +113,13 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public void addFriend(long userId, long friendId) {
-        Friendship directFriendship = getFriendship(userId, friendId);
-        if (directFriendship != null) {
+        Optional<Friendship> directFriendship = getFriendship(userId, friendId);
+        if (directFriendship.isPresent()) {
             return;
         }
-        Friendship oppositeFriendship = getFriendship(friendId, userId);
-        String status = oppositeFriendship != null ? APPROVED : UNAPPROVED;
-        if (oppositeFriendship != null) {
-            updateFriendshipStatus(oppositeFriendship, status);
-        }
+        Optional<Friendship> oppositeFriendship = getFriendship(friendId, userId);
+        String status = oppositeFriendship.isPresent() ? APPROVED : UNAPPROVED;
+        oppositeFriendship.ifPresent(friendship -> updateFriendshipStatus(friendship, status));
         Friendship friendship = createFriendship(userId, friendId, status);
         String sqlQuery = "INSERT INTO USER_FRIENDS (\"user_id\", \"friendship_id\") VALUES (?, ?)";
         jdbcTemplate.update(sqlQuery, userId, friendship.getId());
@@ -144,27 +143,27 @@ public class UserDbStorage implements UserStorage {
                 .build();
     }
 
-    private Friendship getFriendship(long userId, long friendId) {
+    private Optional<Friendship> getFriendship(long userId, long friendId) {
         String sqlQuery = "SELECT * FROM FRIENDSHIPS " +
                 "WHERE \"user_id\" = ? AND \"friend_id\" = ?";
-        List<Friendship> friendships = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFriendship(rs), userId, friendId);
-        if (friendships.isEmpty() || friendships.stream().allMatch(Objects::isNull)) {
-            return null;
+        List<Friendship> friendships = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFriendship(rs), userId, friendId));
+        if (friendships.isEmpty()) {
+            return Optional.empty();
         }
-        return friendships.get(0);
+        return Optional.ofNullable(friendships.get(0));
     }
 
-    private Friendship extractFriendship(ResultSet rs) throws SQLException {
+    private Optional<Friendship> extractFriendship(ResultSet rs) throws SQLException {
         long friendshipId = rs.getLong("friendship_id");
         if (friendshipId < 0) {
-            return null;
+            return Optional.empty();
         }
-        return Friendship.builder()
+        return Optional.ofNullable(Friendship.builder()
                 .id(friendshipId)
                 .userId(rs.getLong("user_id"))
                 .friendId(rs.getLong("friend_id"))
                 .status(rs.getString("status"))
-                .build();
+                .build());
     }
 
     private void updateFriendshipStatus(Friendship friendship, String status) {
@@ -174,19 +173,17 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public void deleteFriend(long userId, long friendId) {
-        Friendship directFriendship = getFriendship(userId, friendId);
-        if (directFriendship == null) {
+        Optional<Friendship> directFriendship = getFriendship(userId, friendId);
+        if (directFriendship.isEmpty()) {
             return;
         }
-        Friendship oppositeFriendship = getFriendship(friendId, userId);
-        if (oppositeFriendship != null) {
-            updateFriendshipStatus(oppositeFriendship, UNAPPROVED);
-        }
+        Optional<Friendship> oppositeFriendship = getFriendship(friendId, userId);
+        oppositeFriendship.ifPresent(friendship -> updateFriendshipStatus(friendship, UNAPPROVED));
         String sqlQuery = "DELETE FROM FRIENDSHIPS WHERE \"friendship_id\" = ? ";
-        jdbcTemplate.update(sqlQuery, directFriendship.getId());
+        jdbcTemplate.update(sqlQuery, directFriendship.get().getId());
 
         sqlQuery = "DELETE FROM USER_FRIENDS WHERE \"friendship_id\" = ?";
-        jdbcTemplate.update(sqlQuery, directFriendship.getId());
+        jdbcTemplate.update(sqlQuery, directFriendship.get().getId());
     }
 
     @Override
@@ -197,8 +194,8 @@ public class UserDbStorage implements UserStorage {
                 "LEFT JOIN USERS U2 on U2.\"user_id\" = F.\"friend_id\" " +
                 "WHERE U.\"user_id\" = ?" +
                 "ORDER BY U2.\"user_id\"";
-        List<User> users = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs), userId);
-        if (users.isEmpty() || users.stream().allMatch(Objects::isNull)) {
+        List<User> users = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractUser(rs), userId));
+        if (users.isEmpty()) {
             return Collections.emptySet();
         }
         return new LinkedHashSet<>(users);

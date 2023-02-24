@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static ru.yandex.practicum.filmorate.service.FilmService.validate;
+import static ru.yandex.practicum.filmorate.service.impl.FilmServiceImpl.validate;
 
 public class FilmValidationTest {
     @Test

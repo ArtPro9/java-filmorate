@@ -23,6 +23,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static ru.yandex.practicum.filmorate.storage.StorageUtils.convertFromOptionalList;
+
 @Repository
 public class FilmDbStorage implements FilmStorage {
 
@@ -36,44 +38,34 @@ public class FilmDbStorage implements FilmStorage {
     public Collection<Film> getAll() {
         String sqlQuery = "SELECT * FROM FILMS " +
                 "ORDER BY \"film_id\"";
-        return jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFilm(rs));
+        return convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFilm(rs)));
     }
 
-    private Film extractFilm(ResultSet rs) throws SQLException {
+    private Optional<Film> extractFilm(ResultSet rs) throws SQLException {
         long filmId = rs.getLong("film_id");
         if (filmId < 1) {
-            return null;
+            return Optional.empty();
         }
-        return Film.builder()
+        return Optional.ofNullable(Film.builder()
                 .id(filmId)
                 .name(rs.getString("title"))
                 .description(rs.getString("description"))
                 .releaseDate(Optional.ofNullable(rs.getDate("release_date")).map(Date::toLocalDate).orElse(null))
                 .duration(rs.getInt("duration"))
                 .genres(getFilmGenres(filmId))
-                .mpa(getMpaRating(rs.getLong("rating_id")))
-                .build();
+                .mpa(getMpa(rs.getLong("rating_id")))
+                .build());
     }
 
-    public Mpa getMpaRating(long ratingId) {
-        String sqlQuery = "SELECT M.\"rating_id\", M.\"name\" FROM MPA_RATINGS M " +
-                "WHERE M.\"rating_id\" = ?";
-        List<Mpa> mpaRatings = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractMpa(rs), ratingId);
-        if (mpaRatings.isEmpty() || mpaRatings.stream().allMatch(Objects::isNull)) {
-            return null;
-        }
-        return mpaRatings.get(0);
-    }
-
-    private Mpa extractMpa(ResultSet rs) throws SQLException {
+    private Optional<Mpa> extractMpa(ResultSet rs) throws SQLException {
         long mpaId = rs.getLong("rating_id");
         if (mpaId < 1) {
-            return null;
+            return Optional.empty();
         }
-        return Mpa.builder()
+        return Optional.ofNullable(Mpa.builder()
                 .id(mpaId)
                 .name(rs.getString("name"))
-                .build();
+                .build());
     }
 
     private Set<Genre> getFilmGenres(long filmId) {
@@ -81,30 +73,30 @@ public class FilmDbStorage implements FilmStorage {
                 "LEFT JOIN GENRES G on FG.\"genre_id\" = G.\"genre_id\"" +
                 "WHERE FG.\"film_id\" = ?" +
                 "ORDER BY G.\"genre_id\"";
-        List<Genre> genres = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs), filmId);
-        if (genres.isEmpty() || genres.stream().allMatch(Objects::isNull)) {
+        List<Genre> genres = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs), filmId));
+        if (genres.isEmpty()) {
             return Collections.emptySet();
         }
         return new LinkedHashSet<>(genres);
     }
 
-    private Genre extractGenre(ResultSet rs) throws SQLException {
+    private Optional<Genre> extractGenre(ResultSet rs) throws SQLException {
         long genreId = rs.getLong("genre_id");
         if (genreId < 1) {
-            return null;
+            return Optional.empty();
         }
-        return Genre.builder()
+        return Optional.ofNullable(Genre.builder()
                 .id(genreId)
                 .name(rs.getString("name"))
-                .build();
+                .build());
     }
 
     @Override
     public Collection<Genre> getAllGenres() {
         String sqlQuery = "SELECT * FROM GENRES G " +
                 "ORDER BY G.\"genre_id\"";
-        List<Genre> genres = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs));
-        if (genres.isEmpty() || genres.stream().allMatch(Objects::isNull)) {
+        List<Genre> genres = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs)));
+        if (genres.isEmpty()) {
             return Collections.emptySet();
         }
         return new LinkedHashSet<>(genres);
@@ -113,8 +105,8 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Genre getGenre(long genreId) {
         String sqlQuery = "SELECT * FROM GENRES G WHERE G.\"genre_id\" = ?";
-        List<Genre> genres = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs), genreId);
-        if (genres.isEmpty() || genres.stream().allMatch(Objects::isNull)) {
+        List<Genre> genres = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractGenre(rs), genreId));
+        if (genres.isEmpty()) {
             return null;
         }
         return genres.get(0);
@@ -124,8 +116,8 @@ public class FilmDbStorage implements FilmStorage {
     public Collection<Mpa> getAllMpa() {
         String sqlQuery = "SELECT * FROM MPA_RATINGS M " +
                 "ORDER BY M.\"rating_id\"";
-        List<Mpa> mpas = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractMpa(rs));
-        if (mpas.isEmpty() || mpas.stream().allMatch(Objects::isNull)) {
+        List<Mpa> mpas = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractMpa(rs)));
+        if (mpas.isEmpty()) {
             return Collections.emptySet();
         }
         return new LinkedHashSet<>(mpas);
@@ -133,9 +125,9 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Mpa getMpa(long mpaId) {
-        String sqlQuery = "SELECT * FROM MPA_RATINGS G WHERE G.\"rating_id\" = ?";
-        List<Mpa> mpas = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractMpa(rs), mpaId);
-        if (mpas.isEmpty() || mpas.stream().allMatch(Objects::isNull)) {
+        String sqlQuery = "SELECT * FROM MPA_RATINGS M WHERE M.\"rating_id\" = ?";
+        List<Mpa> mpas = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractMpa(rs), mpaId));
+        if (mpas.isEmpty()) {
             return null;
         }
         return mpas.get(0);
@@ -203,8 +195,8 @@ public class FilmDbStorage implements FilmStorage {
         String sqlQuery = "SELECT * FROM FILMS F " +
                 "WHERE \"film_id\" = ? " +
                 "ORDER BY F.\"film_id\"";
-        List<Film> films = jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFilm(rs), filmId);
-        if (films.isEmpty() || films.stream().allMatch(Objects::isNull)) {
+        List<Film> films = convertFromOptionalList(jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractFilm(rs), filmId));
+        if (films.isEmpty()) {
             return null;
         }
         return films.get(0);
@@ -228,10 +220,11 @@ public class FilmDbStorage implements FilmStorage {
                 "LEFT JOIN LIKES L on F.\"film_id\" = L.\"film_id\" " +
                 "ORDER BY L.\"like_id\"";
         Map<Long, Set<Long>> likes = new LinkedHashMap<>();
-        jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractLike(rs)).forEach(like -> {
-            if (like == null) {
+        jdbcTemplate.query(sqlQuery, (rs, rowNum) -> extractLike(rs)).forEach(optionalLike -> {
+            if (optionalLike.isEmpty()) {
                 return;
             }
+            Like like = optionalLike.get();
             Set<Long> filmLikes = likes.getOrDefault(like.getFilmId(), new LinkedHashSet<>());
             if (like.getUserId() > 0) {
                 filmLikes.add(like.getUserId());
@@ -241,15 +234,15 @@ public class FilmDbStorage implements FilmStorage {
         return likes;
     }
 
-    private Like extractLike(ResultSet rs) throws SQLException {
+    private Optional<Like> extractLike(ResultSet rs) throws SQLException {
         long filmId = rs.getLong("film_id");
         if (filmId < 1) {
-            return null;
+            return Optional.empty();
         }
-        return Like.builder()
+        return Optional.ofNullable(Like.builder()
                 .id(rs.getLong("like_id"))
                 .filmId(filmId)
                 .userId(rs.getLong("user_id"))
-                .build();
+                .build());
     }
 }
